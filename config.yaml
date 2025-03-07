@@ -1,0 +1,13 @@
+deepseek:
+  base_url: "https://api.deepseek.com"
+  chat_api: "/chat/completions"
+  api_key: ""
+  timeout: 30
+
+app:
+  debug: true
+
+logging:
+  level: "DEBUG"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "app.log"

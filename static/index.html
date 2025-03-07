@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>日语造句练习</title>
+    <style>
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        .whitespace-pre-line {
+            white-space: pre-line;
+            word-break: break-word;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            max-width: 600px;
+            border-radius: 8px;
+        }
+        @keyframes slideIn {
+            0% { opacity: 0; transform: translateX(100%); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes slideOut {
+            0% { opacity: 1; transform: translateX(0); }
+            100% { opacity: 0; transform: translateX(100%); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-5">
+    <div class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-2xl mb-4">日语造句能力提升</h1>
+        <textarea id="sentence" class="w-full p-2 border rounded" placeholder="请输入中文或日语..."></textarea>
+        <button onclick="processSentence()" class="mt-4 w-full bg-blue-500 text-white py-2 rounded">提交</button>
+
+        <div class="mt-4">
+            <button onclick="showHistory()" class="w-full bg-gray-500 text-white py-2 rounded">查看收藏记录</button>
+        </div>
+        
+        <div id="result" class="mt-2 whitespace-normal"></div>
+        <div id="loading" class="mt-4 hidden">
+            <div class="spinner"></div>
+            <p class="text-center text-gray-500">加载中，请稍候...</p>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="fixed top-4 right-4 space-y-2 z-50"></div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span onclick="closeModal()" class="float-right text-red-500 cursor-pointer">关闭</span>
+            <h2 class="text-xl mb-4">收藏记录</h2>
+    
+            <!-- 搜索框 -->
+            <input id="searchInput" type="text" placeholder="搜索原句或翻译..." 
+                   class="w-full p-2 border rounded mb-2" 
+                   oninput="showHistory()">
+    
+            <!-- 分页控件 -->
+            <div class="flex justify-between mb-2">
+                <button onclick="prevPage()" class="bg-gray-500 text-white py-1 px-3 rounded">上一页</button>
+                <span id="pageInfo"></span>
+                <button onclick="nextPage()" class="bg-gray-500 text-white py-1 px-3 rounded">下一页</button>
+            </div>
+    
+            <!-- 收藏记录内容，设置滚动条 -->
+            <div id="history" class="space-y-4 h-80 overflow-y-auto bg-gray-100 p-2 rounded"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        const pageSize = 5;
+
+        async function processSentence() {
+            const sentence = document.getElementById("sentence").value.trim();
+            const resultDiv = document.getElementById("result");
+            const loadingDiv = document.getElementById("loading");
+
+            // 清空上次的结果，显示加载动画
+            resultDiv.innerHTML = "";
+            loadingDiv.classList.remove("hidden");
+
+            try {
+                const response = await fetch("/process", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sentence })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <p class="flex items-center space-x-1 mb-1">
+                            <strong>翻译结果：</strong>
+                            <span id="translatedText">${data.translated}</span>
+                            <button onclick="speakText('${data.translated}', 'ja')" 
+                                    class="text-blue-500 hover:text-blue-700 focus:outline-none m-0 p-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" />
+                                    <path d="M15.54 8.46a5 5 0 010 7.07M19.07 5.93a9 9 0 010 12.73" />
+                                </svg>
+                            </button>
+                        </p>
+
+                        <p class="mb-1 mt-0"><strong>平假名注释：</strong>${data.furigana}</p>
+                        <p class="mb-1 mt-0"><strong>语法解析：</strong></p>
+                        <pre class="whitespace-pre-wrap m-0 p-1 bg-gray-50 rounded">${data.grammar}</pre>
+
+                        <button onclick="saveResult()" class="mt-2 w-full bg-green-500 text-white py-2 rounded">收藏结果</button>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p class="text-red-500">错误：${data.detail || '请求失败'}</p>`;
+                }
+
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="text-red-500">请求异常：${error.message}</p>`;
+            } finally {
+                // 隐藏加载动画
+                loadingDiv.classList.add("hidden");
+            }
+        }
+        async function saveResult() {
+            const resultDiv = document.getElementById("result");
+            const original = document.getElementById("sentence").value.trim();
+        
+            if (!original || !resultDiv.innerHTML) {
+                showToast("请先提交句子并获得翻译结果！", "warning");
+                return;
+            }
+        
+            const data = {
+                original,
+                translated: resultDiv.querySelector("p:nth-of-type(1)").innerText.replace("翻译结果：", "").trim(),
+                furigana: resultDiv.querySelector("p:nth-of-type(2)").innerText.replace("平假名注释：", "").trim(),
+                grammar: resultDiv.querySelector("pre").innerText.trim()
+            };
+        
+            try {
+                const response = await fetch("/records", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+        
+                if (response.ok) {
+                    showToast("结果已成功保存！", "success");
+                } else {
+                    showToast("保存失败，请稍后重试。", "error");
+                }
+            } catch (error) {
+                showToast("保存时发生错误：" + error.message, "error");
+            }
+        }
+
+        async function showHistory() {
+            const searchQuery = document.getElementById("searchInput").value.trim();
+            const historyDiv = document.getElementById("history");
+            historyDiv.innerHTML = "加载中...";
+            document.getElementById("modal").style.display = "block";
+    
+            try {
+                const response = await fetch(`/records?query=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`);
+                const data = await response.json();
+    
+                if (response.ok) {
+                    historyDiv.innerHTML = data.records.map(record => `
+                        <div class="p-4 bg-white rounded shadow flex justify-between items-center">
+                            <div class="flex-grow">
+                                <p><strong>原句：</strong>${record.original_sentence}</p>
+                                <p><strong>翻译：</strong>${record.translated_sentence}
+                                    <button onclick="speakText('${record.translated_sentence}', 'ja')" 
+                                            class="text-blue-500 hover:text-blue-700 focus:outline-none m-0 p-0">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" />
+                                            <path d="M15.54 8.46a5 5 0 010 7.07M19.07 5.93a9 9 0 010 12.73" />
+                                        </svg>
+                                    </button>
+                                </p>
+                                <p><strong>平假名：</strong>${record.furigana}</p>
+                                <p><strong>语法解析：</strong><pre class="whitespace-pre-wrap m-0">${record.grammar}</pre></p>
+                            </div>
+                            <button onclick="deleteRecord(${record.id})" 
+                                    class="text-red-500 hover:text-red-700 focus:outline-none ml-4">删除</button>
+                        </div>
+                    `).join("");
+    
+                    document.getElementById("pageInfo").textContent = `第 ${currentPage} 页，共 ${data.totalPages} 页`;
+                } else {
+                    historyDiv.innerHTML = `<p class="text-red-500">无法加载历史记录。</p>`;
+                }
+            } catch (error) {
+                historyDiv.innerHTML = `<p class="text-red-500">加载错误：${error.message}</p>`;
+            }
+        }
+
+        async function deleteRecord(id) {
+            if (confirm("确定要删除这条记录吗？")) {
+                try {
+                    const response = await fetch(`/records/${id}`, { method: "DELETE" });
+                    if (response.ok) {
+                        showToast("记录已删除！", "success");
+                        showHistory(); // 刷新记录列表
+                    } else {
+                        showToast("删除失败，请稍后重试。", "error");
+                    }
+                } catch (error) {
+                    showToast("删除时发生错误：" + error.message, "error");
+                }
+            }
+        }
+    
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                showHistory();
+            }
+        }
+    
+        function nextPage() {
+            currentPage++;
+            showHistory();
+        }
+
+        function closeModal() {
+            document.getElementById("modal").style.display = "none";
+        }
+
+        function speakText(text, lang = 'ja') {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = lang; // 设置语言 (ja: 日语, zh-CN: 中文)
+                utterance.rate = 1.0;  // 设置语速 (0.1 - 2.0)
+                utterance.pitch = 1.0; // 设置音调 (0 - 2)
+                window.speechSynthesis.speak(utterance);
+            } else {
+                showToast("当前浏览器不支持语音播放功能。", "warning");
+            }
+        }
+
+        function showToast(message, type = "success", duration = 3000) {
+            const toastContainer = document.getElementById("toastContainer");
+        
+            // 不同类型的提示颜色
+            const typeClasses = {
+                success: "bg-green-500",
+                error: "bg-red-500",
+                warning: "bg-yellow-500",
+                info: "bg-blue-500"
+            };
+        
+            // 创建 Toast 元素
+            const toast = document.createElement("div");
+            toast.className = `flex items-center ${typeClasses[type]} text-white text-sm px-4 py-2 rounded shadow animate-slide-in`;
+            toast.style.animation = `slideIn 0.3s ease, slideOut 0.3s ${duration / 1000}s ease forwards`;
+        
+            toast.innerHTML = `
+                <span class="flex-1">${message}</span>
+                <button class="ml-2 text-white focus:outline-none" onclick="this.parentElement.remove()">
+                    ✖️
+                </button>
+            `;
+        
+            // 添加 Toast 到容器中
+            toastContainer.appendChild(toast);
+        
+            // 自动移除 Toast
+            setTimeout(() => {
+                toast.remove();
+            }, duration);
+        }
+    </script>
+</body>
+</html>

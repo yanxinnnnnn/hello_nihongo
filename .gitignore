@@ -1,0 +1,21 @@
+
+# Python相关
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.log
+
+# 环境变量
+.env
+
+# VSCode相关
+.vscode/
+.idea/
+
+# 静态文件和临时文件
+staticfiles/
+media/
+
+# FastAPI自动生成文件
+*.db
+
