@@ -70,11 +70,17 @@ def get_user_info(access_token: str) -> dict:
     else:
         raise HTTPException(status_code=400, detail='获取用户信息失败')
 
+def format_private_key(private_key: str) -> str:
+    """为没有头尾的私钥添加 PEM 格式的标记"""
+    if not private_key.startswith("-----BEGIN"):
+        private_key = "-----BEGIN PRIVATE KEY-----\n" + private_key + "\n-----END PRIVATE KEY-----"
+    return private_key
+
 def generate_sign(params: dict, private_key: str) -> str:
     """使用 RSA2 (SHA256withRSA) 生成签名"""
     param_str = '&'.join(f'{k}={v}' for k, v in sorted(params.items()))
     # 加载私钥并生成签名
-    key = RSA.importKey(private_key)
+    key = RSA.importKey(format_private_key(private_key))
     signer = PKCS1_v1_5.new(key)
     digest = SHA256.new(param_str.encode('utf-8'))
     sign = signer.sign(digest)
