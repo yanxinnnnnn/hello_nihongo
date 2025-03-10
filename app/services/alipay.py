@@ -101,11 +101,16 @@ def verify_alipay_signature(data: dict, sign: str, public_key: str) -> bool:
 
     try:
         formatted_public_key = format_public_key(public_key)
+        logger.debug(f"[verify_alipay_signature] 格式化后的公钥: {formatted_public_key}")
         key = RSA.importKey(formatted_public_key)
         verifier = PKCS1_v1_5.new(key)
         digest = SHA256.new(unsigned_string.encode('utf-8'))
         decoded_sign = base64.b64decode(sign)
-        return verifier.verify(digest, decoded_sign)
+        if verifier.verify(digest, decoded_sign):
+            return True
+        else:
+            logger.error(f"[verify_alipay_signature] 签名验证失败: 原始字符串={unsigned_string}, 签名={sign}")
+            return False
     except:
-        logger.error(f"[verify_alipay_signature]签名验证失败: {format_exc()}")
+        logger.error(f"[verify_alipay_signature] 签名验证失败: {format_exc()}")
         return False
