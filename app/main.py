@@ -150,7 +150,13 @@ async def alipay_callback(auth_code: str, response: Response, db: Session = Depe
             nick_name=user_info.get("nick_name")
         )
 
-        response.set_cookie(key="session_id", value=session_id, httponly=True, max_age=60*60*24*7)
+        response.set_cookie(
+            key="session_id",
+            value=session_id,
+            httponly=True,
+            max_age=60*60*24*7,
+            path='/'
+        )
         return RedirectResponse("/")
     except Exception as e:
         logger.error(f'支付宝登录失败：{format_exc()}')
