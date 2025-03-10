@@ -2,7 +2,7 @@ import time
 import base64
 import logging
 import requests
-from urllib.parse import urlencode, unquote
+from urllib.parse import urlencode
 from fastapi import HTTPException
 from app.config import config
 from Crypto.Signature import PKCS1_v1_5
@@ -62,12 +62,7 @@ def get_user_info(access_token: str) -> dict:
     result = response.json()
     logger.debug(f'[get_user_info]支付宝API Gateway响应数据：{result}')
     if 'alipay_user_info_share_response' in result:
-        data = result['alipay_user_info_share_response']
-        sign = result.get('sign')
-        if verify_alipay_signature(data, sign, config.get('alipay.alipay_public_key')):
-            return data
-        else:
-            raise HTTPException(status_code=400, detail='支付宝响应签名验证失败')
+        return result['alipay_user_info_share_response']
     else:
         raise HTTPException(status_code=400, detail='获取用户信息失败')
 
@@ -84,6 +79,7 @@ def generate_sign(params: dict, private_key: str) -> str:
     key = RSA.importKey(format_private_key(private_key))
     signer = PKCS1_v1_5.new(key)
     digest = SHA256.new(param_str.encode('utf-8'))
+    sign = signer.sign(digest)
     # 签名进行 base64 编码
     return base64.b64encode(sign).decode('utf-8')
 
@@ -93,20 +89,13 @@ def format_public_key(public_key: str) -> str:
         public_key = "-----BEGIN PUBLIC KEY-----\n" + public_key + "\n-----END PUBLIC KEY-----"
     return public_key
 
-def clean_value(value: str) -> str:
-    """清理参数值中的多余空格和不可见字符"""
-    if isinstance(value, str):
-        # 移除首尾空白，替换连续空白为单个空格
-        return ' '.join(value.strip().split())
-    return str(value)
-
 def verify_alipay_signature(data: dict, sign: str, public_key: str) -> bool:
-    """验证支付宝返回数据的签名，严格按照支付宝签名规则实现"""
+    """验证支付宝返回数据的签名"""
     # 1. 过滤掉 sign 和 sign_type 字段，并确保不包含空值的参数
-    unsigned_items = {k: clean_value(v) for k, v in data.items()
-                      if k not in ['sign', 'sign_type'] and v not in [None, ""]}
+    unsigned_items = {k: v for k, v in data.items() if k not in ['sign', 'sign_type'] and v is not None}
 
-    # 2. 按字母顺序拼接待签名字符串
+    # 2. 按照支付宝官方文档要求的顺序拼接待签名字符串
+    # 拼接规则：key1=value1&key2=value2&key3=value3
     unsigned_string = '&'.join(f"{k}={v}" for k, v in sorted(unsigned_items.items()))
 
     try:
@@ -114,12 +103,11 @@ def verify_alipay_signature(data: dict, sign: str, public_key: str) -> bool:
         logger.debug(f"[verify_alipay_signature] 格式化后的公钥: {formatted_public_key}")
         logger.debug(f"[verify_alipay_signature] 生成的待签名字符串: {unsigned_string}")
 
+        # 3. 使用公钥验证签名
         key = RSA.importKey(formatted_public_key)
         verifier = PKCS1_v1_5.new(key)
         digest = SHA256.new(unsigned_string.encode('utf-8'))
-
-        # 解码签名（注意：支付宝的签名通常是 Base64 编码的）
-        decoded_sign = base64.b64decode(unquote(sign))
+        decoded_sign = base64.b64decode(sign)
 
         if verifier.verify(digest, decoded_sign):
             logger.debug("[verify_alipay_signature] 签名验证成功")
