@@ -129,4 +129,5 @@ async def alipay_callback(auth_code: str):
         user_info = get_user_info(access_token)
         return user_info
     except Exception as e:
+        logger.error(f'支付宝登录失败：{e}')
         raise HTTPException(status_code=500, detail=f'支付宝登录失败：{str(e)}')
