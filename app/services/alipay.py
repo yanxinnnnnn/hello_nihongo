@@ -2,7 +2,7 @@ import time
 import base64
 import logging
 import requests
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode
 from fastapi import HTTPException
 from app.config import config
 from Crypto.Signature import PKCS1_v1_5
@@ -96,24 +96,31 @@ def format_public_key(public_key: str) -> str:
 
 def verify_alipay_signature(data: dict, sign: str, public_key: str) -> bool:
     """验证支付宝返回数据的签名"""
-    unsigned_items = {k: v for k, v in data.items() if k not in ['sign', 'sign_type']}
+    # 1. 过滤掉 sign 和 sign_type 字段，并确保不包含空值的参数
+    unsigned_items = {k: v for k, v in data.items() if k not in ['sign', 'sign_type'] and v is not None}
 
-    # 使用 URL 编码处理参数值，防止特殊字符导致签名不匹配
-    unsigned_string = '&'.join(f"{k}={quote(str(v), safe='')}" for k, v in sorted(unsigned_items.items()) if v is not None)
+    # 2. 按照支付宝官方文档要求的顺序拼接待签名字符串
+    # 拼接规则：key1=value1&key2=value2&key3=value3
+    unsigned_string = '&'.join(f"{k}={v}" for k, v in sorted(unsigned_items.items()))
 
     try:
         formatted_public_key = format_public_key(public_key)
         logger.debug(f"[verify_alipay_signature] 格式化后的公钥: {formatted_public_key}")
         logger.debug(f"[verify_alipay_signature] 生成的待签名字符串: {unsigned_string}")
+
+        # 3. 使用公钥验证签名
         key = RSA.importKey(formatted_public_key)
         verifier = PKCS1_v1_5.new(key)
         digest = SHA256.new(unsigned_string.encode('utf-8'))
         decoded_sign = base64.b64decode(sign)
+
         if verifier.verify(digest, decoded_sign):
+            logger.debug("[verify_alipay_signature] 签名验证成功")
             return True
         else:
             logger.error(f"[verify_alipay_signature] 签名验证失败: 原始字符串={unsigned_string}, 签名={sign}")
             return False
+
     except Exception as e:
         logger.error(f"[verify_alipay_signature] 签名验证异常: {format_exc()}")
         return False
