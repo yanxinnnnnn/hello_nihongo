@@ -43,10 +43,12 @@ def get_db():
 @app.get('/', response_class=HTMLResponse)
 async def read_index(request: Request, db: Session = Depends(get_db)):
     session_id = request.cookies.get("session_id")
+    logger.debug(f'[read_index] session_id: {session_id}')
     if not session_id:
         return RedirectResponse("/alipay/login")
 
     user_session = get_user_session(db, session_id)
+    logger.debug(f'[read_index] user_session: {user_session}')
     if not user_session:
         return RedirectResponse("/alipay/login")
 

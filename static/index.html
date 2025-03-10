@@ -295,8 +295,10 @@
         }
 
         async function checkLoginStatus() {
+            console.log("页面加载，开始检查登录状态");
             try {
                 const response = await fetch('/current-user');
+                console.log('/current-user response', response.status)
                 if (response.status === 200) {
                     const userInfo = await response.json();
                     document.getElementById('userAvatar').src = userInfo.avatar;
