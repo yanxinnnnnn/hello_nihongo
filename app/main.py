@@ -21,13 +21,13 @@ app = FastAPI(
     description='一个帮助用户进行中日双向翻译、平假名注释和语法解析的应用。'
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=['*'],
-    allow_credentials=True,
-    allow_methods=['*'],
-    allow_headers=['*'],
-)
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=['*'],
+#     allow_credentials=True,
+#     allow_methods=['*'],
+#     allow_headers=['*'],
+# )
 
 app.mount('/static', StaticFiles(directory='static'), name='static')
 
@@ -157,6 +157,7 @@ async def alipay_callback(auth_code: str, response: Response, db: Session = Depe
             max_age=60*60*24*7,
             path='/'
         )
+        logger.debug(f"设置 Cookie 成功: session_id={session_id}")
         return RedirectResponse("/")
     except Exception as e:
         logger.error(f'支付宝登录失败：{format_exc()}')
