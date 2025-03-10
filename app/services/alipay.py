@@ -87,13 +87,20 @@ def generate_sign(params: dict, private_key: str) -> str:
     # 签名进行 base64 编码
     return base64.b64encode(sign).decode('utf-8')
 
+def format_public_key(public_key: str) -> str:
+    """为没有头尾的公钥添加 PEM 格式的标记"""
+    if not public_key.startswith("-----BEGIN"):
+        public_key = "-----BEGIN PUBLIC KEY-----\n" + public_key + "\n-----END PUBLIC KEY-----"
+    return public_key
+
 def verify_alipay_signature(data: dict, sign: str, public_key: str) -> bool:
     """验证支付宝返回数据的签名"""
     unsigned_items = {k: v for k, v in data.items() if k not in ['sign', 'sign_type']}
     unsigned_string = '&'.join(f"{k}={v}" for k, v in sorted(unsigned_items.items()))
 
     try:
-        key = RSA.importKey(base64.b64decode(public_key))
+        formatted_public_key = format_public_key(public_key)
+        key = RSA.importKey(formatted_public_key)
         verifier = PKCS1_v1_5.new(key)
         digest = SHA256.new(unsigned_string.encode('utf-8'))
         decoded_sign = base64.b64decode(sign)
