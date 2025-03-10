@@ -1,6 +1,7 @@
 import time
 import base64
 import hashlib
+import logging
 import requests
 import urllib.parse
 from fastapi import HTTPException
@@ -8,6 +9,8 @@ from app.config import config
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
+
+logger = logging.getLogger(__name__)
 
 def build_alipay_login_url() -> str:
     """构建支付宝授权登录的URL"""
@@ -56,6 +59,7 @@ def get_user_info(access_token: str) -> dict:
 
     response = requests.post(config.get('alipay.api_gateway'), data=params)
     result = response.json()
+    logger.debug(f'支付宝API Gateway响应数据：{result}')
     if 'alipay_user_info_share_response' in result:
         data = result['alipay_user_info_share_response']
         sign = result.get('sign')
