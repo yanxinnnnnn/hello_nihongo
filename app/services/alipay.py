@@ -38,6 +38,7 @@ def get_access_token(auth_code: str) -> str:
 
     response = requests.post(config.get('alipay.api_gateway'), data=params)
     result = response.json()
+    logger.debug(f'[get_access_token]支付宝API Gateway响应数据：{result}')
     if 'alipay_system_oauth_token_response' in result:
         return result['alipay_system_oauth_token_response']['access_token']
     else:
@@ -59,7 +60,7 @@ def get_user_info(access_token: str) -> dict:
 
     response = requests.post(config.get('alipay.api_gateway'), data=params)
     result = response.json()
-    logger.debug(f'支付宝API Gateway响应数据：{result}')
+    logger.debug(f'[get_user_info]支付宝API Gateway响应数据：{result}')
     if 'alipay_user_info_share_response' in result:
         data = result['alipay_user_info_share_response']
         sign = result.get('sign')
