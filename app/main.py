@@ -162,8 +162,8 @@ async def logout(request: Request, response: Response, db: Session = Depends(get
         response.delete_cookie("session_id")
     return RedirectResponse("/")
 
-@app.get("/api/user_info", response_model=dict)
-async def get_user_info(request: Request, db: Session = Depends(get_db)):
+@app.get("/current-user", response_model=dict)
+async def get_current_user(request: Request, db: Session = Depends(get_db)):
     session_id = request.cookies.get("session_id")
     if not session_id:
         raise HTTPException(status_code=401, detail="未登录")

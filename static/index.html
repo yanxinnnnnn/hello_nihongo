@@ -296,7 +296,7 @@
 
         async function checkLoginStatus() {
             try {
-                const response = await fetch('/api/user_info');
+                const response = await fetch('/current-user');
                 if (response.status === 200) {
                     const userInfo = await response.json();
                     document.getElementById('userAvatar').src = userInfo.avatar;
