@@ -1,6 +1,5 @@
 import time
 import base64
-import hashlib
 import logging
 import requests
 import urllib.parse
@@ -35,8 +34,8 @@ def get_access_token(auth_code: str) -> str:
         'code': auth_code,
     }
     params['sign'] = generate_sign(params, config.get('alipay.app_private_key'))
-
-    response = requests.post(config.get('alipay.api_gateway'), data=params)
+    headers = {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8'}
+    response = requests.post(config.get('alipay.api_gateway'), data=params, headers=headers)
     result = response.json()
     logger.debug(f'[get_access_token]支付宝API Gateway响应数据：{result}')
     if 'alipay_system_oauth_token_response' in result:
@@ -72,10 +71,15 @@ def get_user_info(access_token: str) -> dict:
         raise HTTPException(status_code=400, detail='获取用户信息失败')
 
 def generate_sign(params: dict, private_key: str) -> str:
-    """生成请求签名 (RSA2 签名)"""
+    """使用 RSA2 (SHA256withRSA) 生成签名"""
     param_str = '&'.join(f'{k}={v}' for k, v in sorted(params.items()))
-    sign = base64.b64encode(hashlib.sha256(param_str.encode('utf-8')).digest()).decode('utf-8')
-    return sign
+    # 加载私钥并生成签名
+    key = RSA.importKey(private_key)
+    signer = PKCS1_v1_5.new(key)
+    digest = SHA256.new(param_str.encode('utf-8'))
+    sign = signer.sign(digest)
+    # 签名进行 base64 编码
+    return base64.b64encode(sign).decode('utf-8')
 
 def verify_alipay_signature(data: dict, sign: str, public_key: str) -> bool:
     """验证支付宝返回数据的签名"""
