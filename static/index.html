@@ -100,6 +100,11 @@
     </div>
 
     <script>
+        window.onload = () => {
+            console.log("页面加载，开始检查登录状态");
+            checkLoginStatus();
+        };
+
         let currentPage = 1;
         const pageSize = 5;
 
@@ -295,7 +300,6 @@
         }
 
         async function checkLoginStatus() {
-            console.log("页面加载，开始检查登录状态");
             try {
                 const response = await fetch('/current-user');
                 console.log('/current-user response', response.status)
@@ -318,8 +322,6 @@
             await fetch('/logout', { method: 'GET' });
             window.location.href = '/';
         }
-
-        window.onload = checkLoginStatus;
     </script>
 </body>
 </html>
