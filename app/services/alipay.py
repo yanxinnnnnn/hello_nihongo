@@ -2,7 +2,7 @@ import time
 import base64
 import logging
 import requests
-import urllib.parse
+from urllib.parse import urlencode, quote
 from fastapi import HTTPException
 from app.config import config
 from Crypto.Signature import PKCS1_v1_5
@@ -19,7 +19,7 @@ def build_alipay_login_url() -> str:
         'scope': 'auth_user',
         'redirect_uri': config.get('alipay.callback_uri'),
     }
-    return f"{config.get('alipay.gateway')}?{urllib.parse.urlencode(params)}"
+    return f"{config.get('alipay.gateway')}?{urlencode(params)}"
 
 def get_access_token(auth_code: str) -> str:
     """通过授权码获取access token"""
@@ -97,11 +97,14 @@ def format_public_key(public_key: str) -> str:
 def verify_alipay_signature(data: dict, sign: str, public_key: str) -> bool:
     """验证支付宝返回数据的签名"""
     unsigned_items = {k: v for k, v in data.items() if k not in ['sign', 'sign_type']}
-    unsigned_string = '&'.join(f"{k}={v}" for k, v in sorted(unsigned_items.items()))
+
+    # 使用 URL 编码处理参数值，防止特殊字符导致签名不匹配
+    unsigned_string = '&'.join(f"{k}={quote(str(v), safe='')}" for k, v in sorted(unsigned_items.items()) if v is not None)
 
     try:
         formatted_public_key = format_public_key(public_key)
         logger.debug(f"[verify_alipay_signature] 格式化后的公钥: {formatted_public_key}")
+        logger.debug(f"[verify_alipay_signature] 生成的待签名字符串: {unsigned_string}")
         key = RSA.importKey(formatted_public_key)
         verifier = PKCS1_v1_5.new(key)
         digest = SHA256.new(unsigned_string.encode('utf-8'))
@@ -111,6 +114,6 @@ def verify_alipay_signature(data: dict, sign: str, public_key: str) -> bool:
         else:
             logger.error(f"[verify_alipay_signature] 签名验证失败: 原始字符串={unsigned_string}, 签名={sign}")
             return False
-    except:
-        logger.error(f"[verify_alipay_signature] 签名验证失败: {format_exc()}")
+    except Exception as e:
+        logger.error(f"[verify_alipay_signature] 签名验证异常: {format_exc()}")
         return False
