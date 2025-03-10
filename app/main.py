@@ -155,7 +155,9 @@ async def alipay_callback(auth_code: str, response: Response, db: Session = Depe
             value=session_id,
             httponly=True,
             max_age=60*60*24*7,
-            path='/'
+            path='/',
+            secure=True,   # 生产环境建议开启
+            samesite="Lax" # 适合大多数场景，跨域时可使用 "None"
         )
         logger.debug(f"设置 Cookie 成功: session_id={session_id}")
         return RedirectResponse("/")
