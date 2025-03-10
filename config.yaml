@@ -1,8 +1,16 @@
 deepseek:
   base_url: "https://api.deepseek.com"
   chat_api: "/chat/completions"
-  api_key: ""
+  api_key: "deepseek的API KEY"
   timeout: 30
+
+alipay:
+  app_id: "支付宝开发者平台的应用id"
+  callback_uri: "https://hello-nihongo.me/alipay/callback"
+  gateway: "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm"
+  api_gateway: "https://openapi.alipay.com/gateway.do"
+  app_private_key: "应用私钥"
+  alipay_public_key: "平台公钥，注意不是应用公钥而是平台公钥，上传应用公私钥后平台自动生成"
 
 app:
   debug: true

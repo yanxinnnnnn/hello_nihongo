@@ -52,6 +52,7 @@
     </style>
 </head>
 <body class="bg-gray-100 p-5">
+    <button onclick="alipayLogin()" class="w-full bg-blue-500 text-white py-2 rounded">使用支付宝登录</button>
     <div class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-md">
         <h1 class="text-2xl mb-4">日语造句能力提升</h1>
         <textarea id="sentence" class="w-full p-2 border rounded" placeholder="请输入中文或日语..."></textarea>
@@ -96,55 +97,66 @@
         let currentPage = 1;
         const pageSize = 5;
 
+        function alipayLogin() {
+            const alipayLoginUrl = "/alipay/login";
+            window.location.href = alipayLoginUrl;
+        }
+
+        async function apiRequest(url, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: { "Content-Type": "application/json" }
+            };
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || '请求失败');
+                }
+                return data;
+            } catch (error) {
+                showToast(`请求错误：${error.message}`, "error");
+                throw error;
+            }
+        }
+
         async function processSentence() {
             const sentence = document.getElementById("sentence").value.trim();
             const resultDiv = document.getElementById("result");
             const loadingDiv = document.getElementById("loading");
 
-            // 清空上次的结果，显示加载动画
             resultDiv.innerHTML = "";
             loadingDiv.classList.remove("hidden");
 
             try {
-                const response = await fetch("/process", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ sentence })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    resultDiv.innerHTML = `
-                        <p class="flex items-center space-x-1 mb-1">
-                            <strong>翻译结果：</strong>
-                            <span id="translatedText">${data.translated}</span>
-                            <button onclick="speakText('${data.translated}', 'ja')" 
-                                    class="text-blue-500 hover:text-blue-700 focus:outline-none m-0 p-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" />
-                                    <path d="M15.54 8.46a5 5 0 010 7.07M19.07 5.93a9 9 0 010 12.73" />
-                                </svg>
-                            </button>
-                        </p>
-
-                        <p class="mb-1 mt-0"><strong>平假名注释：</strong>${data.furigana}</p>
-                        <p class="mb-1 mt-0"><strong>语法解析：</strong></p>
-                        <pre class="whitespace-pre-wrap m-0 p-1 bg-gray-50 rounded">${data.grammar}</pre>
-
-                        <button onclick="saveResult()" class="mt-2 w-full bg-green-500 text-white py-2 rounded">收藏结果</button>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `<p class="text-red-500">错误：${data.detail || '请求失败'}</p>`;
-                }
-
+                const data = await apiRequest("/process", "POST", { sentence });
+                resultDiv.innerHTML = `
+                    <p class="flex items-center space-x-1 mb-1">
+                        <strong>翻译结果：</strong>
+                        <span id="translatedText">${data.translated}</span>
+                        <button onclick="speakText('${data.translated}', 'ja')"
+                                class="text-blue-500 hover:text-blue-700 focus:outline-none m-0 p-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" />
+                                <path d="M15.54 8.46a5 5 0 010 7.07M19.07 5.93a9 9 0 010 12.73" />
+                            </svg>
+                        </button>
+                    </p>
+                    <p class="mb-1 mt-0"><strong>平假名注释：</strong>${data.furigana}</p>
+                    <p class="mb-1 mt-0"><strong>语法解析：</strong></p>
+                    <pre class="whitespace-pre-wrap m-0 p-1 bg-gray-50 rounded">${data.grammar}</pre>
+                    <button onclick="saveResult()" class="mt-2 w-full bg-green-500 text-white py-2 rounded">收藏结果</button>
+                `;
             } catch (error) {
                 resultDiv.innerHTML = `<p class="text-red-500">请求异常：${error.message}</p>`;
             } finally {
-                // 隐藏加载动画
                 loadingDiv.classList.add("hidden");
             }
         }
+
         async function saveResult() {
             const resultDiv = document.getElementById("result");
             const original = document.getElementById("sentence").value.trim();
@@ -162,19 +174,10 @@
             };
         
             try {
-                const response = await fetch("/records", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data)
-                });
-        
-                if (response.ok) {
-                    showToast("结果已成功保存！", "success");
-                } else {
-                    showToast("保存失败，请稍后重试。", "error");
-                }
+                const response = await apiRequest("/records", "POST", data);
+                showToast("结果已成功保存！", "success");
             } catch (error) {
-                showToast("保存时发生错误：" + error.message, "error");
+                showToast("保存失败，请稍后重试。", "error");
             }
         }
 
@@ -185,35 +188,29 @@
             document.getElementById("modal").style.display = "block";
     
             try {
-                const response = await fetch(`/records?query=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`);
-                const data = await response.json();
-    
-                if (response.ok) {
-                    historyDiv.innerHTML = data.records.map(record => `
-                        <div class="p-4 bg-white rounded shadow flex justify-between items-center">
-                            <div class="flex-grow">
-                                <p><strong>原句：</strong>${record.original_sentence}</p>
-                                <p><strong>翻译：</strong>${record.translated_sentence}
-                                    <button onclick="speakText('${record.translated_sentence}', 'ja')" 
-                                            class="text-blue-500 hover:text-blue-700 focus:outline-none m-0 p-0">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" />
-                                            <path d="M15.54 8.46a5 5 0 010 7.07M19.07 5.93a9 9 0 010 12.73" />
-                                        </svg>
-                                    </button>
-                                </p>
-                                <p><strong>平假名：</strong>${record.furigana}</p>
-                                <p><strong>语法解析：</strong><pre class="whitespace-pre-wrap m-0">${record.grammar}</pre></p>
-                            </div>
-                            <button onclick="deleteRecord(${record.id})" 
-                                    class="text-red-500 hover:text-red-700 focus:outline-none ml-4">删除</button>
+                const data = await apiRequest(`/records?query=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`);
+                historyDiv.innerHTML = data.records.map(record => `
+                    <div class="p-4 bg-white rounded shadow flex justify-between items-center">
+                        <div class="flex-grow">
+                            <p><strong>原句：</strong>${record.original_sentence}</p>
+                            <p><strong>翻译：</strong>${record.translated_sentence}
+                                <button onclick="speakText('${record.translated_sentence}', 'ja')"
+                                        class="text-blue-500 hover:text-blue-700 focus:outline-none m-0 p-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" />
+                                        <path d="M15.54 8.46a5 5 0 010 7.07M19.07 5.93a9 9 0 010 12.73" />
+                                    </svg>
+                                </button>
+                            </p>
+                            <p><strong>平假名：</strong>${record.furigana}</p>
+                            <p><strong>语法解析：</strong><pre class="whitespace-pre-wrap m-0">${record.grammar}</pre></p>
                         </div>
-                    `).join("");
+                        <button onclick="deleteRecord(${record.id})"
+                                class="text-red-500 hover:text-red-700 focus:outline-none ml-4">删除</button>
+                    </div>
+                `).join("");
     
-                    document.getElementById("pageInfo").textContent = `第 ${currentPage} 页，共 ${data.totalPages} 页`;
-                } else {
-                    historyDiv.innerHTML = `<p class="text-red-500">无法加载历史记录。</p>`;
-                }
+                document.getElementById("pageInfo").textContent = `第 ${currentPage} 页，共 ${data.totalPages} 页`;
             } catch (error) {
                 historyDiv.innerHTML = `<p class="text-red-500">加载错误：${error.message}</p>`;
             }
@@ -222,15 +219,11 @@
         async function deleteRecord(id) {
             if (confirm("确定要删除这条记录吗？")) {
                 try {
-                    const response = await fetch(`/records/${id}`, { method: "DELETE" });
-                    if (response.ok) {
-                        showToast("记录已删除！", "success");
-                        showHistory(); // 刷新记录列表
-                    } else {
-                        showToast("删除失败，请稍后重试。", "error");
-                    }
+                    await apiRequest(`/records/${id}`, "DELETE");
+                    showToast("记录已删除！", "success");
+                    showHistory(); // 刷新记录列表
                 } catch (error) {
-                    showToast("删除时发生错误：" + error.message, "error");
+                    showToast("删除失败，请稍后重试。", "error");
                 }
             }
         }

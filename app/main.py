@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.request_models import SentenceInput
 from app.models.database import SessionLocal, TranslationRecord
 from app.services.translation import process_translation
+from app.services.alipay import build_alipay_login_url, get_access_token, get_user_info
 import logging
 
 logger = logging.getLogger(__name__)
@@ -115,3 +117,16 @@ async def delete_record(id: int, db: Session = Depends(get_db)):
         return {'message': '删除成功'}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'删除记录失败：{str(e)}')
+
+@app.get('/alipay/login', response_class=RedirectResponse)
+async def alipay_login():
+    return build_alipay_login_url()
+
+@app.get('/alipay/callback')
+async def alipay_callback(auth_code: str):
+    try:
+        access_token = get_access_token(auth_code)
+        user_info = get_user_info(access_token)
+        return user_info
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'支付宝登录失败：{str(e)}')
