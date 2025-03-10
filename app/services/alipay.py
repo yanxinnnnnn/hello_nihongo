@@ -8,6 +8,7 @@ from app.config import config
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
+from traceback import format_exc
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,6 @@ def verify_alipay_signature(data: dict, sign: str, public_key: str) -> bool:
         digest = SHA256.new(unsigned_string.encode('utf-8'))
         decoded_sign = base64.b64decode(sign)
         return verifier.verify(digest, decoded_sign)
-    except Exception as e:
-        print(f"签名验证失败: {e}")
+    except:
+        logger.error(f"[verify_alipay_signature]签名验证失败: {format_exc()}")
         return False

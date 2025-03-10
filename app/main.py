@@ -9,6 +9,7 @@ from app.models.request_models import SentenceInput
 from app.models.database import SessionLocal, TranslationRecord
 from app.services.translation import process_translation
 from app.services.alipay import build_alipay_login_url, get_access_token, get_user_info
+from traceback import format_exc
 import logging
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ async def save_translation(data: dict, db: Session = Depends(get_db)):
         db.commit()
         return {'message': '保存成功！'}
     except Exception as e:
-        logger.error(f'保存到数据库失败：{e}')
+        logger.error(f'保存到数据库失败：{format_exc()}')
         raise HTTPException(status_code=500, detail='保存失败，请稍后重试。')
 
 @app.post('/process', response_model=dict)
@@ -103,6 +104,7 @@ async def get_records(query: str = '', page: int = 1, limit: int = 5, db: Sessio
             'totalPages': total_pages
         }
     except Exception as e:
+        logger.error(f'查询记录失败：{format_exc()}')
         raise HTTPException(status_code=500, detail=f'查询记录失败：{str(e)}')
     
 @app.delete('/records/{id}')
@@ -116,6 +118,7 @@ async def delete_record(id: int, db: Session = Depends(get_db)):
         db.commit()
         return {'message': '删除成功'}
     except Exception as e:
+        logger.error(f'删除记录失败：{format_exc()}')
         raise HTTPException(status_code=500, detail=f'删除记录失败：{str(e)}')
 
 @app.get('/alipay/login', response_class=RedirectResponse)
@@ -129,5 +132,5 @@ async def alipay_callback(auth_code: str):
         user_info = get_user_info(access_token)
         return user_info
     except Exception as e:
-        logger.error(f'支付宝登录失败：{e}')
+        logger.error(f'支付宝登录失败：{format_exc()}')
         raise HTTPException(status_code=500, detail=f'支付宝登录失败：{str(e)}')
