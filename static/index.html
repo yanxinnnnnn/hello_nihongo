@@ -53,6 +53,12 @@
 </head>
 <body class="bg-gray-100 p-5">
     <button onclick="alipayLogin()" class="w-full bg-blue-500 text-white py-2 rounded">使用支付宝登录</button>
+    <div id="loginSection" style="display:none;">
+        <img id="userAvatar" src="" alt="用户头像" style="width:50px; border-radius:50%;">
+        <span id="userName"></span>
+        <button onclick="logout()">退出登录</button>
+    </div>
+
     <div class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-md">
         <h1 class="text-2xl mb-4">日语造句能力提升</h1>
         <textarea id="sentence" class="w-full p-2 border rounded" placeholder="请输入中文或日语..."></textarea>
@@ -287,6 +293,31 @@
                 toast.remove();
             }, duration);
         }
+
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/api/user_info');
+                if (response.status === 200) {
+                    const userInfo = await response.json();
+                    document.getElementById('userAvatar').src = userInfo.avatar;
+                    document.getElementById('userName').innerText = userInfo.nick_name;
+                    document.getElementById('loginSection').style.display = 'block';
+                    document.getElementById('appContent').style.display = 'block';
+                } else {
+                    window.location.href = '/alipay/login';
+                }
+            } catch (error) {
+                console.error('检查登录状态失败', error);
+                window.location.href = '/alipay/login';
+            }
+        }
+
+        async function logout() {
+            await fetch('/logout', { method: 'GET' });
+            window.location.href = '/';
+        }
+
+        window.onload = checkLoginStatus;
     </script>
 </body>
 </html>

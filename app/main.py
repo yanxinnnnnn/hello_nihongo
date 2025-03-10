@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, Response
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -9,6 +9,7 @@ from app.models.request_models import SentenceInput
 from app.models.database import SessionLocal, TranslationRecord
 from app.services.translation import process_translation
 from app.services.alipay import build_alipay_login_url, get_access_token, get_user_info
+from app.services.session import create_user_session, get_user_session, delete_user_session
 from traceback import format_exc
 import logging
 
@@ -40,8 +41,17 @@ def get_db():
         db.close()
 
 @app.get('/', response_class=HTMLResponse)
-async def read_index(request: Request):
-    return templates.TemplateResponse('index.html', {'request': request})
+async def read_index(request: Request, db: Session = Depends(get_db)):
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        return RedirectResponse("/alipay/login")
+
+    user_session = get_user_session(db, session_id)
+    if not user_session:
+        return RedirectResponse("/alipay/login")
+
+    # 渲染 index.html，用户信息通过 /api/user_info 接口获取
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post('/records', response_model=dict)
 async def save_translation(data: dict, db: Session = Depends(get_db)):
@@ -126,11 +136,44 @@ async def alipay_login():
     return build_alipay_login_url()
 
 @app.get('/alipay/callback')
-async def alipay_callback(auth_code: str):
+async def alipay_callback(auth_code: str, response: Response, db: Session = Depends(get_db)):
     try:
         access_token = get_access_token(auth_code)
         user_info = get_user_info(access_token)
-        return user_info
+
+        session_id = create_user_session(
+            db,
+            open_id=user_info.get("open_id"),
+            avatar=user_info.get("avatar"),
+            nick_name=user_info.get("nick_name")
+        )
+
+        response.set_cookie(key="session_id", value=session_id, httponly=True, max_age=60*60*24*7)
+        return RedirectResponse("/")
     except Exception as e:
         logger.error(f'支付宝登录失败：{format_exc()}')
         raise HTTPException(status_code=500, detail=f'支付宝登录失败：{str(e)}')
+
+@app.get("/logout", response_class=RedirectResponse)
+async def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        delete_user_session(db, session_id)
+        response.delete_cookie("session_id")
+    return RedirectResponse("/")
+
+@app.get("/api/user_info", response_model=dict)
+async def get_user_info(request: Request, db: Session = Depends(get_db)):
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="未登录")
+
+    user_session = get_user_session(db, session_id)
+    if not user_session:
+        raise HTTPException(status_code=401, detail="会话已过期或无效")
+
+    return {
+        "open_id": user_session.open_id,
+        "avatar": user_session.avatar,
+        "nick_name": user_session.nick_name
+    }
