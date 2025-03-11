@@ -160,7 +160,9 @@ async def alipay_callback(auth_code: str, response: Response, db: Session = Depe
             samesite="Lax" # 适合大多数场景，跨域时可使用 "None"
         )
         logger.debug(f"设置 Cookie 成功: session_id={session_id}")
-        return RedirectResponse("/")
+        response.status_code = 303  # 303 See Other，防止表单重复提交
+        response.headers["Location"] = "/"
+        return response
     except Exception as e:
         logger.error(f'支付宝登录失败：{format_exc()}')
         raise HTTPException(status_code=500, detail=f'支付宝登录失败：{str(e)}')
@@ -171,7 +173,9 @@ async def logout(request: Request, response: Response, db: Session = Depends(get
     if session_id:
         delete_user_session(db, session_id)
         response.delete_cookie("session_id")
-    return RedirectResponse("/")
+    response.status_code = 303  # 303 See Other，防止表单重复提交
+    response.headers["Location"] = "/"
+    return response
 
 @app.get("/current-user", response_model=dict)
 async def get_current_user(request: Request, db: Session = Depends(get_db)):
