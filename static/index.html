@@ -302,7 +302,7 @@
         async function checkLoginStatus() {
             try {
                 const response = await fetch('/current-user');
-                console.log('/current-user response', response.status)
+                console.log('/current-user response.status is: ', response.status)
                 if (response.status === 200) {
                     const userInfo = await response.json();
                     document.getElementById('userAvatar').src = userInfo.avatar;
@@ -310,6 +310,7 @@
                     document.getElementById('loginSection').style.display = 'block';
                     document.getElementById('appContent').style.display = 'block';
                 } else {
+                    console.log('/current-user response.status not 200, is: ', response.status)
                     window.location.href = '/alipay/login';
                 }
             } catch (error) {
