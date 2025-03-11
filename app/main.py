@@ -175,7 +175,7 @@ async def login_prompt():
     <body>
         <h2>您尚未登录</h2>
         <p>请点击下方按钮进行登录：</p>
-        <a href="/login"><button>登录</button></a>
+        <a href="/alipay/login"><button>登录</button></a>
     </body>
     </html>
     """
