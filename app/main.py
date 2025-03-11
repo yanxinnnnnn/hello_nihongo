@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Response
 from fastapi.responses import RedirectResponse
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -11,6 +10,7 @@ from app.services.translation import process_translation
 from app.services.alipay import build_alipay_login_url, get_access_token, get_user_info
 from app.services.session import create_user_session, get_user_session, delete_user_session
 from traceback import format_exc
+from functools import wraps
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,14 +20,6 @@ app = FastAPI(
     version='1.0.0',
     description='一个帮助用户进行中日双向翻译、平假名注释和语法解析的应用。'
 )
-
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=['*'],
-#     allow_credentials=True,
-#     allow_methods=['*'],
-#     allow_headers=['*'],
-# )
 
 app.mount('/static', StaticFiles(directory='static'), name='static')
 
@@ -40,22 +32,27 @@ def get_db():
     finally:
         db.close()
 
+def login_required(func):
+    @wraps(func)
+    async def wrapper(request: Request, db: Session = Depends(get_db), *args, **kwargs):
+        session_id = request.cookies.get("session_id")
+        if not session_id:
+            return RedirectResponse("/login-prompt")
+
+        user_session = get_user_session(db, session_id)
+        if not user_session:
+            return RedirectResponse("/login-prompt")
+
+        return await func(request, db, *args, **kwargs)
+    return wrapper
+
 @app.get('/', response_class=HTMLResponse)
+@login_required
 async def read_index(request: Request, db: Session = Depends(get_db)):
-    session_id = request.cookies.get("session_id")
-    logger.debug(f'[read_index] session_id: {session_id}')
-    if not session_id:
-        return RedirectResponse("/alipay/login")
-
-    user_session = get_user_session(db, session_id)
-    logger.debug(f'[read_index] user_session: {user_session}')
-    if not user_session:
-        return RedirectResponse("/alipay/login")
-
-    # 渲染 index.html，用户信息通过 /api/user_info 接口获取
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post('/records', response_model=dict)
+@login_required
 async def save_translation(data: dict, db: Session = Depends(get_db)):
     try:
         record = TranslationRecord(
@@ -72,6 +69,7 @@ async def save_translation(data: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail='保存失败，请稍后重试。')
 
 @app.post('/process', response_model=dict)
+@login_required
 async def process_sentence(data: SentenceInput):
     sentence = data.sentence.strip()
     if not sentence:
@@ -89,6 +87,7 @@ async def process_sentence(data: SentenceInput):
     return result
 
 @app.get('/records', response_model=dict)
+@login_required
 async def get_records(query: str = '', page: int = 1, limit: int = 5, db: Session = Depends(get_db)):
     try:
         query = f'%{query}%'
@@ -120,6 +119,7 @@ async def get_records(query: str = '', page: int = 1, limit: int = 5, db: Sessio
         raise HTTPException(status_code=500, detail=f'查询记录失败：{str(e)}')
     
 @app.delete('/records/{id}')
+@login_required
 async def delete_record(id: int, db: Session = Depends(get_db)):
     try:
         record = db.query(TranslationRecord).filter(TranslationRecord.id == id).first()
@@ -167,17 +167,33 @@ async def alipay_callback(auth_code: str, response: Response, db: Session = Depe
         logger.error(f'支付宝登录失败：{format_exc()}')
         raise HTTPException(status_code=500, detail=f'支付宝登录失败：{str(e)}')
 
+@app.get('/login-prompt', response_class=HTMLResponse)
+async def login_prompt():
+    html_content = """
+    <html>
+    <head><title>登录提示</title></head>
+    <body>
+        <h2>您尚未登录</h2>
+        <p>请点击下方按钮进行登录：</p>
+        <a href="/login"><button>登录</button></a>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
 @app.get("/logout", response_class=RedirectResponse)
+@login_required
 async def logout(request: Request, response: Response, db: Session = Depends(get_db)):
     session_id = request.cookies.get("session_id")
     if session_id:
         delete_user_session(db, session_id)
         response.delete_cookie("session_id")
-    response.status_code = 303  # 303 See Other，防止表单重复提交
-    response.headers["Location"] = "/"
+    response.status_code = 303
+    response.headers["Location"] = "/login-prompt"
     return response
 
 @app.get("/current-user", response_model=dict)
+@login_required
 async def get_current_user(request: Request, db: Session = Depends(get_db)):
     session_id = request.cookies.get("session_id")
     if not session_id:

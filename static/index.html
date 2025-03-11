@@ -309,17 +309,17 @@
                     document.getElementById('loginSection').style.display = 'block';
                 } else {
                     console.log('/current-user response.status not 200, is: ', response.status)
-                    window.location.href = '/alipay/login';
+                    window.location.href = '/login-prompt';
                 }
             } catch (error) {
                 console.error('检查登录状态失败', error);
-                window.location.href = '/alipay/login';
+                window.location.href = '/login-prompt';
             }
         }
 
         async function logout() {
             await fetch('/logout', { method: 'GET' });
-            window.location.href = '/';
+            window.location.href = '/login-prompt';
         }
     </script>
 </body>
