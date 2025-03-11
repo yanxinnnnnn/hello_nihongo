@@ -52,7 +52,6 @@
     </style>
 </head>
 <body class="bg-gray-100 p-5">
-    <button onclick="alipayLogin()" class="w-full bg-blue-500 text-white py-2 rounded">使用支付宝登录</button>
     <div id="loginSection" style="display:none;">
         <img id="userAvatar" src="" alt="用户头像" style="width:50px; border-radius:50%;">
         <span id="userName"></span>
@@ -308,7 +307,6 @@
                     document.getElementById('userAvatar').src = userInfo.avatar;
                     document.getElementById('userName').innerText = userInfo.nick_name;
                     document.getElementById('loginSection').style.display = 'block';
-                    document.getElementById('appContent').style.display = 'block';
                 } else {
                     console.log('/current-user response.status not 200, is: ', response.status)
                     window.location.href = '/alipay/login';
