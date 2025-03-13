@@ -63,7 +63,7 @@ def login_required(func):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"未知异常：{exc}")
+    logger.error(f"未知异常：{format_exc()}")
     return JSONResponse(
         status_code=500,
         content={"message": "服务器内部错误"}
