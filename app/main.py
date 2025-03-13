@@ -1,29 +1,17 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Response
-from fastapi.responses import RedirectResponse, JSONResponse
-from fastapi.responses import HTMLResponse
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
-from app.models.request_models import SentenceInput
-from app.models.database import SessionLocal, TranslationRecord, UserSession
+from app.models.database import SessionLocal, TranslationRecord
 from app.services.translation import process_translation
 from app.services.alipay import build_alipay_login_url, get_access_token, get_user_info
 from app.services.session import create_user_session, get_user_session, delete_user_session
 from traceback import format_exc
 from functools import wraps
-from contextvars import ContextVar
 import logging
 
 logger = logging.getLogger(__name__)
-
-# request_context: ContextVar[Request] = ContextVar('request_context')
-
-# class RequestContextMiddleware(BaseHTTPMiddleware):
-#     async def dispatch(self, request: Request, call_next):
-#         request_context.set(request)
-#         response = await call_next(request)
-#         return response
 
 app = FastAPI(
     title='日语造句能力提升应用',
@@ -31,7 +19,6 @@ app = FastAPI(
     description='一个帮助用户进行中日双向翻译、平假名注释和语法解析的应用。'
 )
 
-# app.add_middleware(RequestContextMiddleware)
 app.mount('/static', StaticFiles(directory='static'), name='static')
 
 templates = Jinja2Templates(directory='static')
@@ -89,23 +76,13 @@ async def save_translation(request: Request, data: dict, db: Session = Depends(g
         logger.error(f'保存到数据库失败：{format_exc()}')
         raise HTTPException(status_code=500, detail='保存失败，请稍后重试。')
 
-@app.post('/process', response_model=dict)
-@login_required
-async def process_sentence(request: Request, data: SentenceInput):
-    sentence = data.sentence.strip()
-    if not sentence:
-        logger.error('输入的句子为空。')
-        raise HTTPException(status_code=400, detail='输入的句子不能为空。')
-    
-    logger.info(f'处理输入句子：{sentence}')
-    result = await process_translation(sentence)
-    
-    if 'error' in result:
-        logger.error(f'处理失败：{result["error"]}')
-        raise HTTPException(status_code=500, detail=result['error'])
-    
-    logger.info(f'处理成功：{result}')
-    return result
+@app.get("/process")
+async def process_sentence(request: Request, sentence: str):
+    """
+    处理翻译请求，返回流式数据。
+    前端应使用 EventSource 监听返回的流数据。
+    """
+    return StreamingResponse(process_translation(sentence), media_type="text/event-stream")
 
 @app.get('/records', response_model=dict)
 @login_required
