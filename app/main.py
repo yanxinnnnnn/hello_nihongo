@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -60,6 +60,14 @@ def login_required(func):
 
         return await func(*args, **kwargs)
     return wrapper
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"未知异常：{exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"message": "服务器内部错误"}
+    )
 
 @app.get('/', response_class=HTMLResponse)
 @login_required
