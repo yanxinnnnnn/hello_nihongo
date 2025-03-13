@@ -67,9 +67,11 @@ async def process_translation(sentence: str):
                     timeout=timeout
                 )
                 response.raise_for_status()
+                logger.debug('[process_translation] 进入循环之前')
 
                 async for line in response.aiter_lines():
                     line = line.strip()
+                    logger.debug(f'[process_translation] 进入循环，line: {line}')
                     if not line:
                         continue
 
