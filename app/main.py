@@ -17,13 +17,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-request_context: ContextVar[Request] = ContextVar('request_context')
+# request_context: ContextVar[Request] = ContextVar('request_context')
 
-class RequestContextMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        request_context.set(request)
-        response = await call_next(request)
-        return response
+# class RequestContextMiddleware(BaseHTTPMiddleware):
+#     async def dispatch(self, request: Request, call_next):
+#         request_context.set(request)
+#         response = await call_next(request)
+#         return response
 
 app = FastAPI(
     title='日语造句能力提升应用',
@@ -31,7 +31,7 @@ app = FastAPI(
     description='一个帮助用户进行中日双向翻译、平假名注释和语法解析的应用。'
 )
 
-app.add_middleware(RequestContextMiddleware)
+# app.add_middleware(RequestContextMiddleware)
 app.mount('/static', StaticFiles(directory='static'), name='static')
 
 templates = Jinja2Templates(directory='static')
@@ -45,8 +45,7 @@ def get_db():
 
 def login_required(func):
     @wraps(func)
-    async def wrapper(*args, **kwargs):
-        request = request_context.get()
+    async def wrapper(request: Request, *args, **kwargs):
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse("/login-prompt")
@@ -55,10 +54,9 @@ def login_required(func):
         user_session = get_user_session(db, session_id)
         if not user_session:
             return RedirectResponse("/login-prompt")
-        kwargs['session_id'] = session_id
-        kwargs['user_session'] = user_session
+        request.state.user_session = user_session
 
-        return await func(*args, **kwargs)
+        return await func(request, *args, **kwargs)
     return wrapper
 
 @app.exception_handler(Exception)
@@ -76,7 +74,7 @@ async def read_index(request: Request):
 
 @app.post('/records', response_model=dict)
 @login_required
-async def save_translation(data: dict, db: Session = Depends(get_db)):
+async def save_translation(request: Request, data: dict, db: Session = Depends(get_db)):
     try:
         record = TranslationRecord(
             original_sentence=data['original'],
@@ -93,7 +91,7 @@ async def save_translation(data: dict, db: Session = Depends(get_db)):
 
 @app.post('/process', response_model=dict)
 @login_required
-async def process_sentence(data: SentenceInput):
+async def process_sentence(request: Request, data: SentenceInput):
     sentence = data.sentence.strip()
     if not sentence:
         logger.error('输入的句子为空。')
@@ -111,7 +109,7 @@ async def process_sentence(data: SentenceInput):
 
 @app.get('/records', response_model=dict)
 @login_required
-async def get_records(query: str = '', page: int = 1, limit: int = 5, db: Session = Depends(get_db)):
+async def get_records(request: Request, query: str = '', page: int = 1, limit: int = 5, db: Session = Depends(get_db)):
     try:
         query = f'%{query}%'
         records_query = db.query(TranslationRecord).filter(
@@ -143,7 +141,7 @@ async def get_records(query: str = '', page: int = 1, limit: int = 5, db: Sessio
     
 @app.delete('/records/{id}')
 @login_required
-async def delete_record(id: int, db: Session = Depends(get_db)):
+async def delete_record(request: Request, id: int, db: Session = Depends(get_db)):
     try:
         record = db.query(TranslationRecord).filter(TranslationRecord.id == id).first()
         if not record:
@@ -217,8 +215,8 @@ async def logout(request: Request, response: Response, db: Session = Depends(get
 
 @app.get("/current-user", response_model=dict)
 @login_required
-async def get_current_user(*args, **kwargs):
-    user_session = kwargs.get('user_session')
+async def get_current_user(request: Request):
+    user_session = request.state.user_session
     if not user_session:
         raise HTTPException(status_code=401, detail="用户未登录")
 
