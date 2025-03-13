@@ -82,7 +82,10 @@ async def process_sentence(request: Request, sentence: str):
     处理翻译请求，返回流式数据。
     前端应使用 EventSource 监听返回的流数据。
     """
-    return StreamingResponse(process_translation(sentence), media_type="text/event-stream")
+    logger.debug('[process_sentence] 进入process_translation之前')
+    generator = await process_translation(sentence)
+    logger.debug(f'[process_translation] 获取到generator, 类型为：{type(generator)}')
+    return StreamingResponse(generator, media_type="text/event-stream")
 
 @app.get('/records', response_model=dict)
 @login_required
