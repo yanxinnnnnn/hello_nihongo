@@ -306,7 +306,7 @@
                     const userInfo = await response.json();
                     document.getElementById('userAvatar').src = userInfo.avatar;
                     document.getElementById('userName').innerText = userInfo.nick_name;
-                    document.getElementById('loginSection').style.display = 'block';
+                    document.getElementById('loginSection').style.display = 'flex';
                 } else {
                     console.log('/current-user response.status not 200, is: ', response.status)
                     window.location.href = '/login-prompt';
