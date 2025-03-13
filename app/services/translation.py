@@ -16,7 +16,9 @@ async def process_translation(sentence: str):
 
     if not api_key:
         logger.error('DeepSeek API Key未配置，请在配置文件中提供有效的值。')
-        return StreamingResponse(iter(["data: {\"error\": \"DeepSeek API Key未配置\"}\n\n"]), media_type="text/event-stream")
+        async def error_stream():
+            yield "data: {\"error\": \"DeepSeek API Key未配置\"}\n\n"
+        return StreamingResponse(error_stream(), media_type="text/event-stream")
 
     messages = [
         {
