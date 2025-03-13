@@ -16,7 +16,7 @@ async def process_translation(sentence: str):
 
     if not api_key:
         logger.error('DeepSeek API Key未配置，请在配置文件中提供有效的值。')
-        return {'error': 'DeepSeek API Key未配置。'}
+        return StreamingResponse(iter(["data: {\"error\": \"DeepSeek API Key未配置\"}\n\n"]), media_type="text/event-stream")
 
     messages = [
         {
@@ -67,7 +67,8 @@ async def process_translation(sentence: str):
                 response.raise_for_status()
 
                 async for line in response.aiter_lines():
-                    if not line.strip():
+                    line = line.strip()
+                    if not line:
                         continue
 
                     if line.startswith('1. 翻译结果:'):
@@ -86,7 +87,7 @@ async def process_translation(sentence: str):
                     if grammar_lines:
                         result['grammar'] = '\n' + '\n'.join(grammar_lines)
 
-                    yield f"data: {result}\n\n"  # 逐步推送到前端
+                    yield f"data: {result}\n\n"
                     await asyncio.sleep(0.01)  # 控制流速，防止前端处理不过来
 
             except httpx.RequestError as e:
