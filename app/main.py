@@ -3,17 +3,27 @@ from fastapi.responses import RedirectResponse
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from app.models.request_models import SentenceInput
-from app.models.database import SessionLocal, TranslationRecord
+from app.models.database import SessionLocal, TranslationRecord, UserSession
 from app.services.translation import process_translation
 from app.services.alipay import build_alipay_login_url, get_access_token, get_user_info
 from app.services.session import create_user_session, get_user_session, delete_user_session
 from traceback import format_exc
 from functools import wraps
+from contextvars import ContextVar
 import logging
 
 logger = logging.getLogger(__name__)
+
+request_context: ContextVar[Request] = ContextVar('request_context')
+
+class RequestContextMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        request_context.set(request)
+        response = await call_next(request)
+        return response
 
 app = FastAPI(
     title='日语造句能力提升应用',
@@ -21,6 +31,7 @@ app = FastAPI(
     description='一个帮助用户进行中日双向翻译、平假名注释和语法解析的应用。'
 )
 
+app.add_middleware(RequestContextMiddleware)
 app.mount('/static', StaticFiles(directory='static'), name='static')
 
 templates = Jinja2Templates(directory='static')
@@ -34,21 +45,25 @@ def get_db():
 
 def login_required(func):
     @wraps(func)
-    async def wrapper(request: Request, db: Session = Depends(get_db), *args, **kwargs):
+    async def wrapper(*args, **kwargs):
+        request = request_context.get()
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse("/login-prompt")
 
+        db = kwargs.get('db') or next(get_db())
         user_session = get_user_session(db, session_id)
         if not user_session:
             return RedirectResponse("/login-prompt")
+        kwargs['session_id'] = session_id
+        kwargs['user_session'] = user_session
 
-        return await func(request, db, *args, **kwargs)
+        return await func(*args, **kwargs)
     return wrapper
 
 @app.get('/', response_class=HTMLResponse)
 @login_required
-async def read_index(request: Request, db: Session = Depends(get_db)):
+async def read_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post('/records', response_model=dict)
@@ -194,14 +209,10 @@ async def logout(request: Request, response: Response, db: Session = Depends(get
 
 @app.get("/current-user", response_model=dict)
 @login_required
-async def get_current_user(request: Request, db: Session = Depends(get_db)):
-    session_id = request.cookies.get("session_id")
-    if not session_id:
-        raise HTTPException(status_code=401, detail="未登录")
-
-    user_session = get_user_session(db, session_id)
+async def get_current_user(*args, **kwargs):
+    user_session = kwargs.get('user_session')
     if not user_session:
-        raise HTTPException(status_code=401, detail="会话已过期或无效")
+        raise HTTPException(status_code=401, detail="用户未登录")
 
     return {
         "open_id": user_session.open_id,
