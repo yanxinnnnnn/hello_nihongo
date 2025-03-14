@@ -90,6 +90,8 @@ async def process_translation(sentence: str):
                         if not delta_content:
                             continue
 
+                        logger.debug(f"接收到的内容: {delta_content}")  # 新增日志，检查数据流结构
+
                         buffer += delta_content
 
                         # 处理不同的部分
