@@ -54,9 +54,10 @@ async def process_translation(sentence: str):
             'grammar': '',
         }
 
+        buffer = ""  # 用于拼接 delta['content']
+        section = None  # 当前解析部分
         grammar_lines = []
         grammar_mode = False
-        section = None  # 记录当前正在处理的部分
 
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
@@ -72,61 +73,61 @@ async def process_translation(sentence: str):
                     timeout=timeout
                 )
                 response.raise_for_status()
-                logger.debug('[process_translation] 进入循环之前')
 
                 async for line in response.aiter_lines():
                     line = line.strip()
                     logger.debug(f'[process_translation] 进入循环，line: {line}')
-                    if not line or not line.startswith("data:"):
-                        continue  # 过滤无效行
+
+                    if not line:
+                        continue
+
+                    # 跳过结束标识
+                    if line == "data: [DONE]":
+                        logger.debug("[process_translation] 流式数据接收完毕")
+                        break
 
                     try:
-                        # **解析 JSON 数据**
                         json_data = json.loads(line[5:].strip())  # 去掉 "data: " 部分
                         delta_content = json_data.get("choices", [{}])[0].get("delta", {}).get("content", "")
 
                         if not delta_content:
-                            continue  # 跳过空数据
+                            continue
 
-                        # **结构化解析**
-                        if delta_content.startswith("1. 翻译结果:"):
+                        buffer += delta_content  # 累积流式数据
+
+                        # 判断当前返回内容是否包含各个分段的标签
+                        if buffer.startswith("1. 翻译结果:"):
                             section = "translated"
-                            result["translated"] = delta_content.replace("1. 翻译结果:", "").strip()
-                        elif delta_content.startswith("2. 平假名注释:"):
+                            # 将标签去除，并保存内容
+                            result["translated"] = buffer.replace("1. 翻译结果:", "").strip()
+                            buffer = ""  # 清空 buffer
+                        elif buffer.startswith("2. 平假名注释:"):
                             section = "furigana"
-                            result["furigana"] = delta_content.replace("2. 平假名注释:", "").strip()
-                        elif delta_content.startswith("3. 语法解析:"):
+                            result["furigana"] = buffer.replace("2. 平假名注释:", "").strip()
+                            buffer = ""
+                        elif buffer.startswith("3. 语法解析:"):
                             section = "grammar"
                             grammar_mode = True
+                            buffer = ""
                         elif grammar_mode:
-                            if delta_content.startswith("   ") or delta_content.startswith("\t"):
+                            if delta_content.strip():
                                 grammar_lines.append(delta_content.strip())
-                            else:
-                                grammar_mode = False
-                                section = None  # 退出语法解析模式
+                        else:
+                            if section == "translated":
+                                result["translated"] += delta_content.strip()
+                            elif section == "furigana":
+                                result["furigana"] += delta_content.strip()
 
-                        # **拼接内容**
-                        if section == "translated":
-                            result["translated"] += delta_content.strip()
-                        elif section == "furigana":
-                            result["furigana"] += delta_content.strip()
-                        elif section == "grammar":
-                            result["grammar"] = "\n".join(grammar_lines) if grammar_lines else ""
+                        # 更新 grammar 字段
+                        result["grammar"] = "\n".join(grammar_lines) if grammar_lines else ""
 
-                        # **流式返回完整的 JSON**
                         yield f"data: {json.dumps(result, ensure_ascii=False)}\n\n"
                         await asyncio.sleep(0.05)  # 控制流速
 
                     except json.JSONDecodeError as e:
                         logger.error(f"JSON解析失败: {e}, line: {line}")
-                        continue  # 避免解析失败影响流式处理
+                        continue
 
-            except httpx.RequestError as e:
-                logger.error(f'请求DeepSeek API失败：{e}')
-                yield "data: {\"error\": \"请求DeepSeek API失败\"}\n\n"
-            except httpx.HTTPStatusError as e:
-                logger.error(f'HTTP错误：{e}')
-                yield "data: {\"error\": \"HTTP错误\"}\n\n"
             except Exception as e:
                 logger.error(f'未知错误：{e}')
                 yield "data: {\"error\": \"未知错误\"}\n\n"
