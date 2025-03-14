@@ -54,8 +54,8 @@ async def process_translation(sentence: str):
             'grammar': '',
         }
 
-        buffer = ""  # 用于拼接 delta['content']
-        section = None  # 当前解析部分
+        buffer = ""
+        section = None
         grammar_lines = []
         grammar_mode = False
 
@@ -76,31 +76,27 @@ async def process_translation(sentence: str):
 
                 async for line in response.aiter_lines():
                     line = line.strip()
-                    logger.debug(f'[process_translation] 进入循环，line: {line}')
-
                     if not line:
                         continue
 
-                    # 跳过结束标识
                     if line == "data: [DONE]":
                         logger.debug("[process_translation] 流式数据接收完毕")
                         break
 
                     try:
-                        json_data = json.loads(line[5:].strip())  # 去掉 "data: " 部分
+                        json_data = json.loads(line[5:].strip())
                         delta_content = json_data.get("choices", [{}])[0].get("delta", {}).get("content", "")
 
                         if not delta_content:
                             continue
 
-                        buffer += delta_content  # 累积流式数据
+                        buffer += delta_content
 
-                        # 判断当前返回内容是否包含各个分段的标签
+                        # 处理不同的部分
                         if buffer.startswith("1. 翻译结果:"):
                             section = "translated"
-                            # 将标签去除，并保存内容
                             result["translated"] = buffer.replace("1. 翻译结果:", "").strip()
-                            buffer = ""  # 清空 buffer
+                            buffer = ""
                         elif buffer.startswith("2. 平假名注释:"):
                             section = "furigana"
                             result["furigana"] = buffer.replace("2. 平假名注释:", "").strip()
@@ -109,20 +105,19 @@ async def process_translation(sentence: str):
                             section = "grammar"
                             grammar_mode = True
                             buffer = ""
+                            grammar_lines = []
                         elif grammar_mode:
                             if delta_content.strip():
                                 grammar_lines.append(delta_content.strip())
+                            result["grammar"] = "\n".join(grammar_lines)
                         else:
                             if section == "translated":
                                 result["translated"] += delta_content.strip()
                             elif section == "furigana":
                                 result["furigana"] += delta_content.strip()
 
-                        # 更新 grammar 字段
-                        result["grammar"] = "\n".join(grammar_lines) if grammar_lines else ""
-
                         yield f"data: {json.dumps(result, ensure_ascii=False)}\n\n"
-                        await asyncio.sleep(0.05)  # 控制流速
+                        await asyncio.sleep(0.05)
 
                     except json.JSONDecodeError as e:
                         logger.error(f"JSON解析失败: {e}, line: {line}")
