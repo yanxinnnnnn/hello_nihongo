@@ -109,7 +109,9 @@ async def process_translation(sentence: str):
                         elif grammar_mode:
                             if delta_content.strip():
                                 grammar_lines.append(delta_content.strip())
-                            result["grammar"] = "\n".join(grammar_lines)
+                            else:
+                                result["grammar"] = "\n".join(grammar_lines)
+                                grammar_mode = False
                         else:
                             if section == "translated":
                                 result["translated"] += delta_content.strip()
