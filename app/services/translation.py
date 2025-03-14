@@ -8,6 +8,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 async def process_translation(sentence: str):
+    logger.debug('[process_translation] 进入函数')
     base_url = config.get('deepseek.base_url', "https://api.deepseek.com")
     chat_api = config.get('deepseek.chat_api', '/chat/completions')
     api_key = config.get('deepseek.api_key', '')
@@ -41,8 +42,10 @@ async def process_translation(sentence: str):
         'messages': messages,
         'stream': True  # 开启流式模式
     }
+    logger.debug('[process_translation] 请求参数构造完成')
 
     async def stream_generator():
+        logger.debug('[process_translation] 进入stream_generator')
         result = {
             'original': sentence,
             'translated': '',
@@ -104,4 +107,5 @@ async def process_translation(sentence: str):
                 logger.error(f'未知错误：{e}')
                 yield "data: {\"error\": \"未知错误\"}\n\n"
 
+    logger.debug('[stream_generator] 准备返回')
     return StreamingResponse(stream_generator(), media_type="text/event-stream")

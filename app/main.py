@@ -84,8 +84,8 @@ async def process_sentence(request: Request, sentence: str):
     """
     logger.debug('[process_sentence] 进入process_translation之前')
     generator = await process_translation(sentence)
-    logger.debug(f'[process_translation] 获取到generator, 类型为：{type(generator)}')
-    return StreamingResponse(generator, media_type="text/event-stream")
+    logger.debug(f'[process_sentence] 获取到generator, 类型为：{type(generator)}')
+    return generator
 
 @app.get('/records', response_model=dict)
 @login_required
