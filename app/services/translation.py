@@ -85,12 +85,13 @@ async def process_translation(sentence: str):
 
                     try:
                         json_data = json.loads(line[5:].strip())
-                        delta_content = json_data.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                        delta_content = json_data.get("choices", [{}])[0].get("delta", {}).get("content")
 
-                        if not delta_content:
+                        if delta_content is None:
                             continue
 
-                        logger.debug(f"接收到的内容: {delta_content}")  # 新增日志，检查数据流结构
+                        logger.debug(f"接收到的内容: {delta_content}")
+                        logger.debug(f'当前buffer: {buffer}')
 
                         buffer += delta_content
 
