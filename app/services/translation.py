@@ -94,24 +94,24 @@ async def process_translation(sentence: str):
 
                         if "1. 翻译结果:" in buffer:
                             section = "translated"
-                        if "2. 平假名注释:" in buffer:
+                        if "\n2. 平假名注释:" in buffer:
                             section = "furigana"
-                        if "3. 语法解析:" in buffer:
+                        if "\n3. 语法解析:" in buffer:
                             section = "grammar"
 
                         if section == "translated":
                             result["translated"] = buffer.replace('1. 翻译结果:', '')
                         elif section == "furigana":
-                            if '2. 平假名注释' in result["translated"]:
-                                result["translated"] = result["translated"].replace('2. 平假名注释', '')
-                            if buffer.endswith('2. 平假名注释:'):
-                                buffer = buffer.split('2. 平假名注释:')[1]
+                            if '\n2. 平假名注释' in result["translated"]:
+                                result["translated"] = result["translated"].replace('\n2. 平假名注释', '')
+                            if buffer.endswith('\n2. 平假名注释:'):
+                                buffer = buffer.split('\n2. 平假名注释:')[1]
                             result["furigana"] = buffer
                         elif section == "grammar":
-                            if '3. 语法解析' in result["furigana"]:
-                                result["furigana"] = result["furigana"].replace('3. 语法解析', '')
-                            if buffer.endswith('3. 语法解析:'):
-                                buffer = buffer.split('3. 语法解析:')[1]
+                            if '\n3. 语法解析' in result["furigana"]:
+                                result["furigana"] = result["furigana"].replace('\n3. 语法解析', '')
+                            if buffer.endswith('\n3. 语法解析:'):
+                                buffer = buffer.split('\n3. 语法解析:')[1]
                             result["grammar"] = buffer.replace(' -', '-')
                         
                         logger.debug(f'result: {result}')
