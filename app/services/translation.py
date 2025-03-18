@@ -102,14 +102,14 @@ async def process_translation(sentence: str):
                         if section == "translated":
                             result["translated"] = buffer.replace('1. 翻译结果:', '').strip()
                         elif section == "furigana":
-                            if '2. 平假名注释:' in result["translated"]:
-                                result["translated"] = result["translated"].replace('2. 平假名注释:', '').strip()
+                            if '2. 平假名注释' in result["translated"]:
+                                result["translated"] = result["translated"].replace('2. 平假名注释', '').strip()
                             if buffer.startswith('1. 翻译结果:'):
                                 buffer = buffer.split('2. 平假名注释:')[1].strip()
                             result["furigana"] = buffer.strip()
                         elif section == "grammar":
-                            if '3. 语法解析:' in result["furigana"]:
-                                result["furigana"] = result["furigana"].replace('3. 语法解析:', '').strip()
+                            if '3. 语法解析' in result["furigana"]:
+                                result["furigana"] = result["furigana"].replace('3. 语法解析', '').strip()
                             if buffer.startswith('2. 平假名注释:'):
                                 buffer = buffer.split('3. 语法解析:')[1].strip()
                             result["grammar"] = buffer.strip()
