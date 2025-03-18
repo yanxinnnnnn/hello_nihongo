@@ -112,7 +112,9 @@ async def process_translation(sentence: str):
                                 result["furigana"] = result["furigana"].replace('\n3. 语法解析', '')
                             if buffer.endswith('\n3. 语法解析:'):
                                 buffer = buffer.split('\n3. 语法解析:')[1]
-                            result["grammar"] = buffer.replace(' -', '-')
+                            if buffer.startswith(' \n'):
+                                buffer = buffer.split(' \n')[1]
+                            result["grammar"] = buffer
                         
                         logger.debug(f'result: {result}')
 
