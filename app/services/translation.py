@@ -54,7 +54,7 @@ async def process_translation(sentence: str):
             'grammar': '',
         }
 
-        buffer = ""
+        buffer = ""  # **累积完整的标记**
         section = None
         grammar_lines = []
         grammar_mode = False
@@ -91,36 +91,35 @@ async def process_translation(sentence: str):
                             continue
 
                         logger.debug(f"接收到的内容: {delta_content}")
-                        logger.debug(f'当前buffer: {buffer}')
 
-                        buffer += delta_content
+                        buffer += delta_content  # **累积内容**
 
-                        # 处理不同的部分
-                        if buffer.startswith("1. 翻译结果:"):
+                        # **检查是否需要切换 `section`**
+                        if "1. 翻译结果:" in buffer:
                             section = "translated"
-                            result["translated"] = buffer.replace("1. 翻译结果:", "").strip()
-                            buffer = ""
-                        elif buffer.startswith("2. 平假名注释:"):
+                            buffer = buffer.split("1. 翻译结果:")[1].strip()  # 清除标记
+                        elif "2. 平假名注释:" in buffer:
                             section = "furigana"
-                            result["furigana"] = buffer.replace("2. 平假名注释:", "").strip()
-                            buffer = ""
-                        elif buffer.startswith("3. 语法解析:"):
+                            buffer = buffer.split("2. 平假名注释:")[1].strip()
+                        elif "3. 语法解析:" in buffer:
                             section = "grammar"
                             grammar_mode = True
-                            buffer = ""
+                            buffer = buffer.split("3. 语法解析:")[1].strip()
                             grammar_lines = []
-                        elif grammar_mode:
-                            if delta_content.strip():
-                                grammar_lines.append(delta_content.strip())
-                            else:
-                                result["grammar"] = "\n".join(grammar_lines)
-                                grammar_mode = False
-                        else:
-                            if section == "translated":
-                                result["translated"] += delta_content.strip()
-                            elif section == "furigana":
-                                result["furigana"] += delta_content.strip()
 
+                        # **按照当前 `section` 存储数据**
+                        if section == "translated":
+                            result["translated"] += buffer.strip()
+                        elif section == "furigana":
+                            result["furigana"] += buffer.strip()
+                        elif section == "grammar":
+                            grammar_lines.append(buffer.strip())
+
+                        # **更新 `grammar` 数据**
+                        if grammar_mode:
+                            result["grammar"] = "\n".join(grammar_lines)
+
+                        buffer = ""  # **处理完后清空 `buffer`**
                         yield f"data: {json.dumps(result, ensure_ascii=False)}\n\n"
                         await asyncio.sleep(0.05)
 
