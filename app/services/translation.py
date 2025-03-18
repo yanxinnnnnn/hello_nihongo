@@ -89,7 +89,7 @@ async def process_translation(sentence: str):
                             continue
 
                         logger.debug(f"接收到的内容: {delta_content}")
-                        buffer += delta_content.strip()
+                        buffer += delta_content
                         logger.debug(f'buffer: {buffer}')
 
                         if "1. 翻译结果:" in buffer:
@@ -112,7 +112,7 @@ async def process_translation(sentence: str):
                                 result["furigana"] = result["furigana"].replace('3. 语法解析', '').strip()
                             if buffer.endswith('3. 语法解析:'):
                                 buffer = buffer.split('3. 语法解析:')[1].strip()
-                            result["grammar"] = buffer.strip()
+                            result["grammar"] = buffer.replace(' -', '-').strip()
                         
                         logger.debug(f'result: {result}')
 
