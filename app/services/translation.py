@@ -54,10 +54,8 @@ async def process_translation(sentence: str):
             'grammar': '',
         }
 
-        buffer = ""  # **累积完整的标记**
+        buffer = ''
         section = None
-        grammar_lines = []
-        grammar_mode = False
 
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
@@ -91,35 +89,33 @@ async def process_translation(sentence: str):
                             continue
 
                         logger.debug(f"接收到的内容: {delta_content}")
+                        buffer += delta_content
+                        logger.debug(f'buffer: {buffer}')
 
-                        buffer += delta_content  # **累积内容**
-
-                        # **检查是否需要切换 `section`**
                         if "1. 翻译结果:" in buffer:
                             section = "translated"
-                            buffer = buffer.split("1. 翻译结果:")[1].strip()  # 清除标记
                         elif "2. 平假名注释:" in buffer:
                             section = "furigana"
-                            buffer = buffer.split("2. 平假名注释:")[1].strip()
                         elif "3. 语法解析:" in buffer:
                             section = "grammar"
-                            grammar_mode = True
-                            buffer = buffer.split("3. 语法解析:")[1].strip()
-                            grammar_lines = []
 
-                        # **按照当前 `section` 存储数据**
                         if section == "translated":
-                            result["translated"] += buffer.strip()
+                            result["translated"] = buffer.replace('1. 翻译结果:', '').strip()
                         elif section == "furigana":
-                            result["furigana"] += buffer.strip()
+                            if '2. 平假名注释:' in result["translated"]:
+                                result["translated"] = result["translated"].replace('2. 平假名注释:', '').strip()
+                            if buffer.startswith('1. 翻译结果:'):
+                                buffer = buffer.split('2. 平假名注释:')[1].strip()
+                            result["furigana"] = buffer.strip()
                         elif section == "grammar":
-                            grammar_lines.append(buffer.strip())
+                            if '3. 语法解析:' in result["furigana"]:
+                                result["furigana"] = result["furigana"].replace('3. 语法解析:', '').strip()
+                            if buffer.startswith('2. 平假名注释:'):
+                                buffer = buffer.split('3. 语法解析:')[1].strip()
+                            result["grammar"] = buffer.strip()
+                        
+                        logger.debug(f'result: {result}')
 
-                        # **更新 `grammar` 数据**
-                        if grammar_mode:
-                            result["grammar"] = "\n".join(grammar_lines)
-
-                        buffer = ""  # **处理完后清空 `buffer`**
                         yield f"data: {json.dumps(result, ensure_ascii=False)}\n\n"
                         await asyncio.sleep(0.05)
 
