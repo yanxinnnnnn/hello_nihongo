@@ -89,7 +89,7 @@ async def process_translation(sentence: str):
                             continue
 
                         logger.debug(f"接收到的内容: {delta_content}")
-                        buffer += delta_content
+                        buffer += delta_content.strip()
                         logger.debug(f'buffer: {buffer}')
 
                         if "1. 翻译结果:" in buffer:
