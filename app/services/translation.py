@@ -100,19 +100,19 @@ async def process_translation(sentence: str):
                             section = "grammar"
 
                         if section == "translated":
-                            result["translated"] = buffer.replace('1. 翻译结果:', '').strip()
+                            result["translated"] = buffer.replace('1. 翻译结果:', '')
                         elif section == "furigana":
                             if '2. 平假名注释' in result["translated"]:
-                                result["translated"] = result["translated"].replace('2. 平假名注释', '').strip()
+                                result["translated"] = result["translated"].replace('2. 平假名注释', '')
                             if buffer.endswith('2. 平假名注释:'):
-                                buffer = buffer.split('2. 平假名注释:')[1].strip()
-                            result["furigana"] = buffer.strip()
+                                buffer = buffer.split('2. 平假名注释:')[1]
+                            result["furigana"] = buffer
                         elif section == "grammar":
                             if '3. 语法解析' in result["furigana"]:
-                                result["furigana"] = result["furigana"].replace('3. 语法解析', '').strip()
+                                result["furigana"] = result["furigana"].replace('3. 语法解析', '')
                             if buffer.endswith('3. 语法解析:'):
-                                buffer = buffer.split('3. 语法解析:')[1].strip()
-                            result["grammar"] = buffer.replace(' -', '-').strip()
+                                buffer = buffer.split('3. 语法解析:')[1]
+                            result["grammar"] = buffer.replace(' -', '-')
                         
                         logger.debug(f'result: {result}')
 
