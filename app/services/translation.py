@@ -94,9 +94,9 @@ async def process_translation(sentence: str):
 
                         if "1. 翻译结果:" in buffer:
                             section = "translated"
-                        elif "2. 平假名注释:" in buffer:
+                        if "2. 平假名注释:" in buffer:
                             section = "furigana"
-                        elif "3. 语法解析:" in buffer:
+                        if "3. 语法解析:" in buffer:
                             section = "grammar"
 
                         if section == "translated":
